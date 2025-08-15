@@ -1,9 +1,5 @@
-name: Docker Image CI
+name: Publish Docker Image
 on:
-  workflow_run:
-    workflows: [ "Generate Changelog" ]
-    types: [ completed ]
-    branches: [ 'release/**', 'hotfix/**' ]
   push:
     branches: [ 'develop', main ]
 
@@ -18,14 +14,8 @@ env:
 jobs:
   docker:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' || !startsWith(github.ref_name, 'release/') && !startsWith(github.ref_name, 'hotfix/') }}
-
     steps:
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          # Para workflow_run, usa o branch correto
-          ref: ${{ github.event.workflow_run.head_branch || github.ref }}
 
       - uses: actions/setup-java@v4
         with:
@@ -39,18 +29,11 @@ jobs:
         id: vars
         shell: bash
         run: |
-          # Para workflow_run, pega o branch do evento
-          CURRENT_BRANCH="${{ github.event.workflow_run.head_branch || github.ref_name }}"
-          
+          CURRENT_BRANCH="${GITHUB_REF_NAME}"
           if [[ "$CURRENT_BRANCH" == "develop" ]]; then
             TAG="develop-${GITHUB_RUN_NUMBER}"
           elif [[ "$CURRENT_BRANCH" == "main" ]]; then
             TAG="latest"
-          elif [[ "$CURRENT_BRANCH" == release/* || "$CURRENT_BRANCH" == hotfix/* ]]; then
-            # Usa a versão incremental do pom.xml
-            VERSION=$(mvn -q -DforceStdout -Dexpression=project.version -DnonRecursive=true help:evaluate 2>/dev/null)
-            TAG="$VERSION"
-            echo "Using incremental version from pom.xml: $TAG"
           else
             TAG="${CURRENT_BRANCH//\//-}-${GITHUB_SHA::7}"
           fi
