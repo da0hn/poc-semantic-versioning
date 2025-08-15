@@ -88,11 +88,15 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           preset: angular
+          # usa a âncora correta conforme o tipo de branch
+          tag-prefix: ${{ startsWith(github.ref_name, 'release/') && 'release-base/' || 'hotfix-base/' }}
           output-file: CHANGELOG.md
           skip-bump: 'true'
           skip-tag: 'true'
           skip-version-file: 'true'
-          release-count: '0'
+          # evita commit interno e falhas quando não há mudanças
+          skip-commit: 'true'
+          skip-on-empty: 'true'
 
       # ETAPA 3: COMMIT CHANGELOG
       - name: Commit changelog
