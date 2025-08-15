@@ -29,20 +29,20 @@ jobs:
         shell: bash
         run: |
           CURRENT_BRANCH="${GITHUB_REF_NAME}"
-          if [[ "CURRENT_BRANCH" == "develop" ]]; then
+          if [[ "$CURRENT_BRANCH" == "develop" ]]; then
             TAG="develop-${GITHUB_RUN_NUMBER}"
-          elif [[ "CURRENT_BRANCH" == "main" ]]; then
+          elif [[ "$CURRENT_BRANCH" == "main" ]]; then
             TAG="latest"
-          elif [[ "CURRENT_BRANCH" == release/* || "CURRENT_BRANCH" == hotfix/* ]]; then
-            VERSION="${CURRENT_BRANCH#*/}"                        # 1.3.0
+          elif [[ "$CURRENT_BRANCH" == release/* || "$CURRENT_BRANCH" == hotfix/* ]]; then
+            VERSION="${$CURRENT_BRANCH#*/}"
             MAJOR="${VERSION%%.*}"
             MINOR="$(echo "$VERSION" | cut -d. -f2)"
             git fetch --tags --quiet
-            BASE_TAG="${CURRENT_BRANCH%%/*}-base/${VERSION}"
-            COUNT=$(git rev-list --count "$BASE_TAG..origin/CURRENT_BRANCH")
+            BASE_TAG="${$CURRENT_BRANCH%%/*}-base/${VERSION}"
+            COUNT=$(git rev-list --count "$BASE_TAG..origin/$CURRENT_BRANCH")
             TAG="$MAJOR.$MINOR.$COUNT"
           else
-            TAG="${CURRENT_BRANCH//\//-}-${GITHUB_SHA::7}"
+            TAG="${$CURRENT_BRANCH//\//-}-${GITHUB_SHA::7}"
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
