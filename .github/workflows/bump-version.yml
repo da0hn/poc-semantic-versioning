@@ -2,6 +2,8 @@ name: Bump version + create anchor
 on:
   create:
     branches: [ 'release/**', 'hotfix/**' ]
+  push:
+    branches: [ 'release/**', 'hotfix/**' ]
 permissions:
   contents: write
 
