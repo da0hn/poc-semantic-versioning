@@ -6,7 +6,7 @@ permissions:
   contents: write
 
 jobs:
-  create-anchor:
+  create-anchor-and-changelog:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -39,22 +39,20 @@ jobs:
           # Se as versões não coincidem, atualiza o pom.xml
           if [[ "$CURRENT_POM_VERSION" != "$BRANCH_VERSION" ]]; then
             echo "🔄 Synchronizing pom.xml version to match branch..."
-            
+          
             mvn -q versions:set -DnewVersion="$BRANCH_VERSION" -DprocessAllModules=true -DgenerateBackupPoms=false
             mvn -q versions:commit
-            
+          
             git add pom.xml
-            git commit -m "chore: sync version to $BRANCH_VERSION
+            git commit -m "chore: sync version to $BRANCH_VERSION [skip-version]
 
             - Branch: $BRANCH
             - Updated pom.xml from $CURRENT_POM_VERSION to $BRANCH_VERSION
             - This establishes the base version for incremental releases"
-            
+          
             echo "✅ Version synchronized: $CURRENT_POM_VERSION → $BRANCH_VERSION"
-            SYNC_MADE=true
           else
             echo "✅ Version already matches: $BRANCH_VERSION"
-            SYNC_MADE=false
           fi
           
           # Cria tag âncora APÓS possível commit de sincronização
@@ -65,18 +63,41 @@ jobs:
 
           Base version: $BRANCH_VERSION
           This tag marks the starting point for incremental versioning."
+
+      - name: Generate initial changelog
+        uses: TriPSs/conventional-changelog-action@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          preset: angular
+          output-file: CHANGELOG.md
+          skip-bump: 'true'
+          skip-tag: 'true'
+          skip-version-file: 'true'
+          release-count: '0'
+
+      - name: Commit and push everything
+        shell: bash
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+          KIND="${BRANCH%%/*}"
+          BRANCH_VERSION="${BRANCH#*/}"
+          BASE_TAG="$KIND-base/$BRANCH_VERSION"
           
-          # Push TUDO de uma só vez para evitar race conditions
-          if [[ "$SYNC_MADE" == "true" ]]; then
-            echo "📤 Pushing branch with sync commit and anchor tag..."
-            git push origin HEAD:"$BRANCH"
-            git push origin "$BASE_TAG"
-          else
-            echo "📤 Pushing anchor tag only..."
-            git push origin "$BASE_TAG"
+          # Adiciona changelog se foi gerado
+          git add CHANGELOG.md || true
+          
+          # Commit do changelog inicial (se houver)
+          if ! git diff --cached --quiet; then
+            git commit -m "docs(changelog): initial changelog for $BRANCH [skip-version]"
+            echo "📝 Initial changelog created"
           fi
+          
+          # Push da branch e da tag
+          git push origin HEAD:"$BRANCH"
+          git push origin "$BASE_TAG"
           
           echo "🚀 Setup completed successfully!"
           echo "   - Branch: $BRANCH"
-          echo "   - Base version: $BRANCH_VERSION"
+          echo "   - Base version: $BRANCH_VERSION" 
           echo "   - Anchor tag: $BASE_TAG"
+          echo "   - Initial changelog: Created"
