@@ -3,11 +3,13 @@
 
 ### Bug Fixes
 
+* **ci:** corrige interpolação de variáveis no Docker CI ([4704c13](https://github.com/da0hn/poc-semantic-versioning/commit/4704c134e3cc113dcd15e28b0b31f85069506e12))
 * **ci:** corrige uso de variáveis no cálculo de tags Docker ([3f8d373](https://github.com/da0hn/poc-semantic-versioning/commit/3f8d37389d381b5955d448580dfb14320022d87f))
 
 
 ### Features
 
+* **ci:** adiciona acionamento por push no workflow bump-version ([f23b63f](https://github.com/da0hn/poc-semantic-versioning/commit/f23b63fe163aa073131d83c7e91028f74c64e8a9))
 * **ci:** adiciona acionamento por workflow concluído no Docker CI ([5bf51db](https://github.com/da0hn/poc-semantic-versioning/commit/5bf51db339ad420985932f1613a7c6fd0711255a))
 * **ci:** adiciona configuração do Git nos workflows changelog e bump-version ([77f9c44](https://github.com/da0hn/poc-semantic-versioning/commit/77f9c4440c214b7f33268b76ba41116dfc25371b))
 * **ci:** adiciona workflow para build e push de imagem Docker ([fdbf200](https://github.com/da0hn/poc-semantic-versioning/commit/fdbf2005331c25e93960484ab676e9a746ea7d8c))
