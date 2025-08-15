@@ -17,6 +17,11 @@ jobs:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
 
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
       - name: Resolve tag-prefix from anchor
         id: cfg
         shell: bash
