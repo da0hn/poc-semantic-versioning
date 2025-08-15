@@ -33,6 +33,7 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       # ETAPA 1: INCREMENTA VERSÃO
+
       - name: Increment version
         id: version
         shell: bash
@@ -53,6 +54,8 @@ jobs:
           fi
           
           echo "has_anchor=true" >> "$GITHUB_OUTPUT"
+          echo "base_version=$BASE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "kind=$KIND" >> "$GITHUB_OUTPUT"
           
           # Calcula versão incremental Z
           MAJOR="${BASE_VERSION%%.*}"                    # 1
@@ -82,21 +85,24 @@ jobs:
           echo "✅ Version incremented to $NEW_VERSION"
 
       # ETAPA 2: ATUALIZA CHANGELOG
-      - name: Update changelog
+      - name: Update changelog (github-changelog-generator)
         if: steps.version.outputs.has_anchor == 'true'
-        uses: TriPSs/conventional-changelog-action@v6
+        uses: heinrichreimer/github-changelog-generator-action@v2.3
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          preset: angular
-          # usa a âncora correta conforme o tipo de branch
-          tag-prefix: ${{ startsWith(github.ref_name, 'release/') && 'release-base/' || 'hotfix-base/' }}
-          output-file: CHANGELOG.md
-          skip-bump: 'true'
-          skip-tag: 'true'
-          skip-version-file: 'true'
-          # evita commit interno e falhas quando não há mudanças
-          skip-commit: 'true'
-          skip-on-empty: 'true'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          user: ${{ github.repository_owner }}
+          project: ${{ github.event.repository.name }}
+          sinceTag: ${{ steps.version.outputs.kind }}-base/${{ steps.version.outputs.base_version }}
+          futureRelease: ${{ steps.version.outputs.new_version }}
+          output: CHANGELOG.md
+          # opções comuns (ajuste se quiser incluir/excluir tipos de itens):
+          issues: true
+          pullRequests: true
+          prWoLabels: true
+          author: false
+          unreleased: false
+          compareLink: true
+
 
       # ETAPA 3: COMMIT CHANGELOG
       - name: Commit changelog

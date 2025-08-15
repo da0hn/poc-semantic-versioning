@@ -64,19 +64,30 @@ jobs:
           Base version: $BRANCH_VERSION
           This tag marks the starting point for incremental versioning."
 
-      - name: Generate initial changelog
-        uses: TriPSs/conventional-changelog-action@v6
+      - name: Push anchor tag (for changelog range)
+        shell: bash
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+          BRANCH_VERSION="${BRANCH#*/}"
+          KIND="${BRANCH%%/*}"
+          BASE_TAG="$KIND-base/$BRANCH_VERSION"
+          git push origin "$BASE_TAG"
+
+      - name: Generate initial changelog (github-changelog-generator)
+        uses: heinrichreimer/github-changelog-generator-action@v2.3
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          preset: angular
-          # calcular desde a âncora: release-base/ ou hotfix-base/
-          tag-prefix: ${{ startsWith(github.ref_name, 'release/') && 'release-base/' || 'hotfix-base/' }}
-          output-file: CHANGELOG.md
-          skip-bump: 'true'
-          skip-tag: 'true'
-          skip-version-file: 'true'
-          skip-commit: 'true'     # impede commit "chore(release): v ..."
-          skip-on-empty: 'true'   # não falha se não houver mudanças
+          token: ${{ secrets.GITHUB_TOKEN }}
+          user: ${{ github.repository_owner }}
+          project: ${{ github.event.repository.name }}
+          sinceTag: ${{ startsWith(github.ref_name, 'release/') && format('release-base/{0}', github.ref_name != '' && github.ref_name || '') || format('hotfix-base/{0}', github.ref_name != '' && github.ref_name || '') }}
+          futureRelease: ${{ github.ref_name && github.ref_name != '' && github.ref_name }} # usa X.Y.Z da própria branch
+          output: CHANGELOG.md
+          issues: true
+          pullRequests: true
+          prWoLabels: true
+          author: false
+          unreleased: false
+          compareLink: true
 
       - name: Commit and push everything
         shell: bash
@@ -95,9 +106,8 @@ jobs:
             echo "📝 Initial changelog created"
           fi
           
-          # Push da branch e da tag
+          # Push da branch (e tag já foi enviada anteriormente)
           git push origin HEAD:"$BRANCH"
-          git push origin "$BASE_TAG"
           
           echo "🚀 Setup completed successfully!"
           echo "   - Branch: $BRANCH"
