@@ -1,5 +1,9 @@
 name: Docker Image CI
 on:
+  workflow_run:
+    workflows: [ "bump-version" ]
+    types:
+      - completed
   push:
     branches: [ 'develop', main, 'release/**', 'hotfix/**' ]
 permissions:
