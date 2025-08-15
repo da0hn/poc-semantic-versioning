@@ -9,6 +9,7 @@
 ### Features
 
 * **ci:** adiciona acionamento por workflow concluído no Docker CI ([5bf51db](https://github.com/da0hn/poc-semantic-versioning/commit/5bf51db339ad420985932f1613a7c6fd0711255a))
+* **ci:** adiciona configuração do Git nos workflows changelog e bump-version ([77f9c44](https://github.com/da0hn/poc-semantic-versioning/commit/77f9c4440c214b7f33268b76ba41116dfc25371b))
 * **ci:** adiciona workflow para build e push de imagem Docker ([fdbf200](https://github.com/da0hn/poc-semantic-versioning/commit/fdbf2005331c25e93960484ab676e9a746ea7d8c))
 * **ci:** adiciona workflow para geração de changelog automático ([4b5f835](https://github.com/da0hn/poc-semantic-versioning/commit/4b5f83543efabc9ba9dfea07a005007cd234fbcf))
 * **ci:** adiciona workflow para versão e criação de âncoras ([15e0586](https://github.com/da0hn/poc-semantic-versioning/commit/15e058622527da3534894f361fe41a7e1c26be13))
