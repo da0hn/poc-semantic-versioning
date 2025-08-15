@@ -1,11 +1,11 @@
 name: Gerar changelog
 on:
-  create:
-    branches: ['release/*','hotfix/*']
-  push:
-    branches: ['release/*','hotfix/*']
-    paths-ignore:
-      - 'CHANGELOG.md'
+#  create:
+#    branches: ['release/*','hotfix/*']
+#  push:
+#    branches: ['release/*','hotfix/*']
+#    paths-ignore:
+#      - 'CHANGELOG.md'
 
 permissions:
   contents: write
