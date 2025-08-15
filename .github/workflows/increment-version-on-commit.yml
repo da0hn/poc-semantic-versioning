@@ -22,7 +22,7 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Calculate and update version
+      - name: Auto-recover missing anchor and calculate version
         shell: bash
         run: |
           BRANCH="${GITHUB_REF_NAME}"            # release/1.3.0 ou hotfix/1.3.1
@@ -31,13 +31,64 @@ jobs:
           
           BASE_TAG="$KIND-base/$BASE_VERSION"
           
-          # Verifica se a tag âncora existe
+          # 🔍 Verifica se a tag âncora existe
           if ! git rev-parse "$BASE_TAG" >/dev/null 2>&1; then
-            echo "❌ Anchor tag $BASE_TAG not found. Please create the branch properly."
-            exit 1
+            echo "⚠️ Anchor tag $BASE_TAG not found. Attempting auto-recovery..."
+            
+            # 🔧 ESTRATÉGIA 1: Procura por commit de sincronização
+            SYNC_COMMIT=$(git log --oneline --grep="chore: sync version to $BASE_VERSION" -n 1 --format="%H" || echo "")
+            
+            if [[ -n "$SYNC_COMMIT" ]]; then
+              echo "🎯 Found sync commit: $SYNC_COMMIT"
+              echo "🏷️ Creating missing anchor tag at sync commit..."
+              
+              git tag -a "$BASE_TAG" "$SYNC_COMMIT" -m "Auto-recovered anchor for $BRANCH
+
+              Base version: $BASE_VERSION
+              Created from sync commit: $SYNC_COMMIT
+              This tag marks the starting point for incremental versioning."
+              
+              git push origin "$BASE_TAG"
+              echo "✅ Anchor tag auto-recovered successfully!"
+              
+            else
+              # 🔧 ESTRATÉGIA 2: Cria âncora no primeiro commit da branch
+              echo "🔄 No sync commit found. Creating anchor at current commit..."
+              
+              # Verifica se a versão do pom.xml bate com a branch
+              CURRENT_POM_VERSION=$(mvn -q -DforceStdout -Dexpression=project.version -DnonRecursive=true help:evaluate 2>/dev/null)
+              
+              if [[ "$CURRENT_POM_VERSION" != "$BASE_VERSION" ]]; then
+                echo "🔄 Synchronizing pom.xml version first..."
+                
+                mvn -q versions:set -DnewVersion="$BASE_VERSION" -DprocessAllModules=true -DgenerateBackupPoms=false
+                mvn -q versions:commit
+                
+                git add pom.xml
+                git commit -m "chore: sync version to $BASE_VERSION (auto-recovery)
+
+                - Branch: $BRANCH
+                - Updated pom.xml from $CURRENT_POM_VERSION to $BASE_VERSION  
+                - Auto-recovery: establishes base version for incremental releases"
+                
+                git push origin HEAD:"$BRANCH"
+              fi
+              
+              # Cria âncora no commit atual
+              git tag -a "$BASE_TAG" -m "Auto-recovered anchor for $BRANCH
+
+              Base version: $BASE_VERSION
+              Created during auto-recovery process
+              This tag marks the starting point for incremental versioning."
+              
+              git push origin "$BASE_TAG"
+              echo "✅ Anchor tag created during auto-recovery!"
+            fi
+          else
+            echo "✅ Anchor tag $BASE_TAG found."
           fi
           
-          # Calcula versão incremental
+          # 📊 Calcula versão incremental (agora a âncora existe)
           MAJOR="${BASE_VERSION%%.*}"                    # 1
           MINOR="$(echo "$BASE_VERSION" | cut -d. -f2)"  # 3
           COUNT=$(git rev-list --count "$BASE_TAG..HEAD") # commits desde âncora
