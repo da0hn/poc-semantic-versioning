@@ -25,9 +25,9 @@ jobs:
       - name: Sync pom.xml version and create anchor
         shell: bash
         run: |
-          BRANCH="${GITHUB_REF_NAME}"            # release/1.3.0 ou hotfix/1.3.1
-          BRANCH_VERSION="${BRANCH#*/}"          # 1.3.0
-          KIND="${BRANCH%%/*}"                   # release|hotfix
+          BRANCH="${GITHUB_REF_NAME}"
+          BRANCH_VERSION="${BRANCH#*/}"
+          KIND="${BRANCH%%/*}"
           
           # Verifica versão atual do pom.xml
           CURRENT_POM_VERSION=$(mvn -q -DforceStdout -Dexpression=project.version -DnonRecursive=true help:evaluate 2>/dev/null)
@@ -51,8 +51,10 @@ jobs:
             - This establishes the base version for incremental releases"
             
             echo "✅ Version synchronized: $CURRENT_POM_VERSION → $BRANCH_VERSION"
+            SYNC_MADE=true
           else
             echo "✅ Version already matches: $BRANCH_VERSION"
+            SYNC_MADE=false
           fi
           
           # Cria tag âncora APÓS possível commit de sincronização
@@ -64,9 +66,15 @@ jobs:
           Base version: $BRANCH_VERSION
           This tag marks the starting point for incremental versioning."
           
-          # Push da branch (se houver mudanças) e da tag
-          git push origin HEAD:"$BRANCH"
-          git push origin "$BASE_TAG"
+          # Push TUDO de uma só vez para evitar race conditions
+          if [[ "$SYNC_MADE" == "true" ]]; then
+            echo "📤 Pushing branch with sync commit and anchor tag..."
+            git push origin HEAD:"$BRANCH"
+            git push origin "$BASE_TAG"
+          else
+            echo "📤 Pushing anchor tag only..."
+            git push origin "$BASE_TAG"
+          fi
           
           echo "🚀 Setup completed successfully!"
           echo "   - Branch: $BRANCH"
