@@ -1,12 +1,9 @@
 name: Generate Changelog
 on:
-  create:
-    branches: ['release/**', 'hotfix/**']
-  push:
-    branches: ['release/**', 'hotfix/**']
-    paths-ignore:
-      - 'CHANGELOG.md'
-      - 'pom.xml'  # Evita loop com commits de versioning
+  workflow_run:
+    workflows: ["Create Release Anchor", "Increment Version on Commit"]
+    types: [completed]
+    branches: [ 'release/**', 'hotfix/**' ]
 
 permissions:
   contents: write
@@ -14,100 +11,78 @@ permissions:
 jobs:
   changelog:
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - uses: actions/checkout@v5
-        with: { fetch-depth: 0 }
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_branch }}
 
       - name: Configure Git
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Determine event context
+      - name: Determine trigger context
         id: context
         shell: bash
         run: |
-          if [[ "${{ github.event_name }}" == "create" ]]; then
-            echo "event_type=branch_creation" >> "$GITHUB_OUTPUT"
+          WORKFLOW_NAME="${{ github.event.workflow_run.name }}"
+          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          
+          if [[ "$WORKFLOW_NAME" == "Create Release Anchor" ]]; then
+            echo "trigger=branch_creation" >> "$GITHUB_OUTPUT"
             echo "📅 Changelog triggered by: Branch creation"
           else
-            echo "event_type=commit_push" >> "$GITHUB_OUTPUT"
-            echo "📅 Changelog triggered by: New commit"
+            echo "trigger=version_increment" >> "$GITHUB_OUTPUT"
+            echo "📅 Changelog triggered by: Version increment"
           fi
 
-      - name: Wait for anchor availability (branch creation only)
-        if: steps.context.outputs.event_type == 'branch_creation'
+      - name: Wait for anchor tag availability
         shell: bash
         run: |
-          BRANCH="${GITHUB_REF_NAME}"
+          BRANCH="${{ steps.context.outputs.branch }}"
           VERSION="${BRANCH#*/}"
           KIND="${BRANCH%%/*}"
           BASE_TAG="$KIND-base/$VERSION"
           
-          echo "⏳ Waiting for anchor tag $BASE_TAG..."
+          echo "⏳ Ensuring anchor tag $BASE_TAG is available..."
           
-          # Aguarda até 90 segundos pela tag âncora
-          for i in {1..18}; do
+          for i in {1..30}; do
             git fetch --tags --quiet
             if git rev-parse "$BASE_TAG" >/dev/null 2>&1; then
-              echo "✅ Anchor tag $BASE_TAG found!"
+              echo "✅ Anchor tag $BASE_TAG confirmed!"
               break
             else
-              echo "⏱️ Attempt $i/18: Waiting 5s for anchor tag..."
-              sleep 5
+              echo "⏱️ Attempt $i/30: Waiting for anchor tag..."
+              sleep 2
             fi
           done
           
           if ! git rev-parse "$BASE_TAG" >/dev/null 2>&1; then
-            echo "⚠️ Anchor tag $BASE_TAG not found, will retry later"
-            exit 0  # Exit gracefully, não falha o workflow
+            echo "❌ Anchor tag $BASE_TAG not found after waiting"
+            exit 1
           fi
 
-      - name: Resolve tag-prefix from anchor
-        id: cfg
-        shell: bash
-        run: |
-          BRANCH="${GITHUB_REF_NAME}"
-          KIND="${BRANCH%%/*}"
-          
-          echo "tag_prefix=${KIND}-base/" >> "$GITHUB_OUTPUT"
-          echo "🏷️ Using tag prefix: ${KIND}-base/"
-
-      - name: Verify anchor tag exists
-        shell: bash
-        run: |
-          BRANCH="${GITHUB_REF_NAME}"
-          VERSION="${BRANCH#*/}"
-          KIND="${BRANCH%%/*}"
-          BASE_TAG="$KIND-base/$VERSION"
-          
-          git fetch --tags --quiet
-          
-          if ! git rev-parse "$BASE_TAG" >/dev/null 2>&1; then
-            echo "❌ Anchor tag $BASE_TAG not found"
-            echo "ℹ️ This might be expected on branch creation. Changelog will be generated on next commit."
-            exit 0
-          fi
-          
-          echo "✅ Anchor tag $BASE_TAG verified"
-
-      - name: Generate CHANGELOG from anchor..HEAD
+      - name: Generate CHANGELOG
         uses: TriPSs/conventional-changelog-action@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           preset: angular
-          tag-prefix: ${{ steps.cfg.outputs.tag_prefix }}
+          tag-prefix: ${{ steps.context.outputs.branch }}_base/  # Usar branch específica como prefix
           output-file: CHANGELOG.md
           skip-bump: 'true'
           skip-tag: 'true'
           skip-version-file: 'true'
           release-count: '0'
 
-      - name: Commit and push CHANGELOG
+      - name: Commit changelog
         shell: bash
         run: |
-          BRANCH="${GITHUB_REF_NAME}"
-          EVENT_TYPE="${{ steps.context.outputs.event_type }}"
+          BRANCH="${{ steps.context.outputs.branch }}"
+          TRIGGER="${{ steps.context.outputs.trigger }}"
           
           git add CHANGELOG.md
           
@@ -116,13 +91,13 @@ jobs:
             exit 0
           fi
           
-          if [[ "$EVENT_TYPE" == "branch_creation" ]]; then
+          if [[ "$TRIGGER" == "branch_creation" ]]; then
             COMMIT_MSG="docs(changelog): initial changelog for ${BRANCH}"
-          else  
+          else
             COMMIT_MSG="docs(changelog): update for ${BRANCH} [skip ci]"
           fi
           
           git commit -m "$COMMIT_MSG"
           git push origin HEAD:"$BRANCH"
           
-          echo "✅ CHANGELOG.md updated successfully"
+          echo "✅ CHANGELOG updated successfully"
