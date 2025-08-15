@@ -1,5 +1,10 @@
 name: Docker Image CI
 on:
+  workflow_run:
+    workflows: ["Bump version + create anchor"]
+    types:
+      - completed
+    branches: [ 'release/**', 'hotfix/**' ]
   push:
     branches: [ 'develop', main, 'release/**', 'hotfix/**' ]
 permissions:
@@ -12,6 +17,8 @@ env:
 jobs:
   docker:
     runs-on: ubuntu-latest
+    # Só executa se o workflow anterior foi bem-sucedido ou se não for release/hotfix
+    if: ${{ github.event.workflow_run.conclusion == 'success' || !startsWith(github.ref_name, 'release/') && !startsWith(github.ref_name, 'hotfix/') }}
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
