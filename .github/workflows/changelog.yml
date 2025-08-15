@@ -1,0 +1,47 @@
+name: Gerar changelog
+on:
+  create:
+    branches: ['release/*','hotfix/*']
+  push:
+    branches: ['release/*','hotfix/*']
+    paths-ignore:
+      - 'CHANGELOG.md'
+
+permissions:
+  contents: write
+
+jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+
+      - name: Resolve tag-prefix from anchor
+        id: cfg
+        shell: bash
+        run: |
+          CURRENT_BRANCH="${GITHUB_REF_NAME}"                 # release/1.3.0 ou hotfix/1.3.1
+          KIND="${CURRENT_BRANCH%%/*}"                        # release|hotfix
+          echo "tag_prefix=${KIND}-base/" >> "$GITHUB_OUTPUT"
+
+      - name: Generate CHANGELOG from anchor..HEAD
+        uses: TriPSs/conventional-changelog-action@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          preset: angular
+          tag-prefix: ${{ steps.cfg.outputs.tag_prefix }}     # usa a tag âncora release-base/X.Y.Z ou hotfix-base/X.Y.Z
+          output-file: CHANGELOG.md
+          skip-bump: 'true'           # versão já foi ajustada no anchor workflow
+          skip-tag: 'true'            # não taguear em release/hotfix
+          skip-version-file: 'true'   # não alterar arquivos de versão
+          release-count: '0'          # reescreve o arquivo baseado no range atual
+
+      - name: Commit CHANGELOG
+        shell: bash
+        run: |
+          git add CHANGELOG.md
+          if git diff --cached --quiet; then
+            echo "No changes in CHANGELOG.md"; exit 0; fi
+          git commit -m "docs(changelog): update for ${GITHUB_REF_NAME} [skip ci]"
+          git push
