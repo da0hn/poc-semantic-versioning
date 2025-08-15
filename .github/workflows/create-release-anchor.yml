@@ -69,14 +69,14 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           preset: angular
-          # usa prefixo baseado no tipo de branch para calcular desde a âncora
+          # calcular desde a âncora: release-base/ ou hotfix-base/
           tag-prefix: ${{ startsWith(github.ref_name, 'release/') && 'release-base/' || 'hotfix-base/' }}
           output-file: CHANGELOG.md
-          skip-bump: 'true'          # não faz bump de versão
-          skip-tag: 'true'           # não cria tags
-          skip-version-file: 'true'  # não toca em arquivos de versão
-          skip-commit: 'true'        # NÃO faz commit interno
-          skip-on-empty: 'true'      # não falha se não houver mudanças no arquivo
+          skip-bump: 'true'
+          skip-tag: 'true'
+          skip-version-file: 'true'
+          skip-commit: 'true'     # impede commit "chore(release): v ..."
+          skip-on-empty: 'true'   # não falha se não houver mudanças
 
       - name: Commit and push everything
         shell: bash
