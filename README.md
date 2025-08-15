@@ -1,9 +1,9 @@
 # RFC — Versionamento, Branching e Releases (Java + Node.js)
 
-**Status:** Draft
-**Data:** 2025-08-14
-**Autor:** Gabriel
-**Revisores:** ...
+- **Status:** Draft
+- **Data:** 2025-08-14
+- **Autor:** Gabriel
+- **Revisores:** ...
 
 ---
 
@@ -22,7 +22,7 @@ Padronizar versionamento, estratégia de branches, geração de imagens Docker e
 
   * `develop`: `develop-${run_number}`
   * `release/*` e `hotfix/*`: `X.Y.N` (N = nº de commits desde a criação da branch)
-  * `main`: `latest` **(e opcionalmente também ****`X.Y.Z`**** para reprodutibilidade)**
+  * `main`: `latest` **(e opcionalmente também ****************************`X.Y.Z`**************************** para reprodutibilidade)**
 * Gerar `CHANGELOG.md` a partir de Conventional Commits.
 
 ### Fora do escopo
@@ -107,6 +107,25 @@ org.opencontainers.image.version=${{ tag }}
 
 ## 7. Workflows — Java + Maven
 
+### 7.0 Ordem de execução e dependências
+
+* **Na criação de release/hotfix**:
+
+  1. `java-anchor` ou `node-anchor`: faz bump de versão e cria tag âncora.
+  2. O push resultante dispara `changelog` e `java-build-and-push`/`node-build-and-push`.
+* **Em commits subsequentes**: `changelog` e build executam em paralelo.
+* **Boas práticas**:
+
+  * Adicionar `concurrency` por branch para evitar execuções concorrentes:
+
+    ```yaml
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    ```
+  * Usar `fetch-depth: 0` e `git fetch --tags` nos jobs que dependem de contagem de commits ou tags.
+  * Configurar `paths-ignore: CHANGELOG.md` no changelog para evitar loops.
+
 ### 7.1. Criar release/hotfix (bump + âncora)
 
 `.github/workflows/java-anchor.yml`
@@ -118,6 +137,9 @@ on:
     branches: ['release/*','hotfix/*']
 permissions:
   contents: write
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   bump-and-anchor:
     runs-on: ubuntu-latest
@@ -142,6 +164,7 @@ jobs:
           git tag -a "$BASE_TAG" -m "base of $BR at creation"
           git push origin HEAD:"$BR"
           git push origin "$BASE_TAG"
+
 ```
 
 ### 7.2. Build & Push Docker
@@ -156,6 +179,9 @@ on:
 permissions:
   contents: read
   packages: write
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/minha-imagem-java
@@ -215,26 +241,111 @@ jobs:
             org.opencontainers.image.source=${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ steps.vars.outputs.tag }}
+
 ```
 
-### 7.3. Corte de release em `main` (tag + imagens adicionais)
+### 7.3. Corte de release em `main` — workflow único por tag
 
-**Opcional (recomendado):** ao criar tag `vX.Y.Z` em `main`, publicar também `org/app:X.Y.Z` além de `latest`.
+**Requisito normativo:** Ao criar a tag `vX.Y.Z` em `main`, **deve** publicar **duas** tags para cada stack (**Java** e **Node**) a partir do **mesmo digest**: `X.Y.Z` **e** `latest`. A publicação **deve** ocorrer em **um único workflow** acionado por tag com **matriz** `stack: [java, node]`.
+
+`.github/workflows/release-cut.yml`
 
 ```yaml
+name: release-cut
 on:
   push:
     tags: ['v*']
-# step extra no job docker para publicar segunda tag:
-- name: Push immutable tag
-  if: startsWith(github.ref, 'refs/tags/v')
-  run: |
-    VER="${GITHUB_REF_NAME#v}"
-    docker build -t $REGISTRY/$IMAGE_NAME:$VER .
-    docker push $REGISTRY/$IMAGE_NAME:$VER
+permissions:
+  contents: read
+  packages: write
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  REGISTRY: ghcr.io
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: [java, node]
+        include:
+          - stack: java
+            image_name: ${{ github.repository_owner }}/minha-imagem-java
+          - stack: node
+            image_name: ${{ github.repository_owner }}/minha-imagem-node
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Derive version from tag
+        id: v
+        shell: bash
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+
+      - name: Setup toolchain (Java)
+        if: matrix.stack == 'java'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup toolchain (Node)
+        if: matrix.stack == 'node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Validate version matches files
+        shell: bash
+        run: |
+          VER="${{ steps.v.outputs.ver }}"
+          if [[ "${{ matrix.stack }}" == "java" ]]; then
+            POM_VER=$(mvn -q -DforceStdout -Dexpression=project.version -DnonRecursive=true help:evaluate)
+            [[ "$POM_VER" == "$VER" ]] || { echo "pom.xml=$POM_VER != $VER"; exit 1; }
+          else
+            PKG_VER=$(jq -r '.version' package.json)
+            [[ "$PKG_VER" == "$VER" ]] || { echo "package.json=$PKG_VER != $VER"; exit 1; }
+          fi
+
+      - name: (Optional) Build artifact
+        run: |
+          if [[ "${{ matrix.stack }}" == "java" ]]; then
+            mvn -B -DskipTests package || true
+          else
+            npm ci && npm run build || true
+          fi
+
+      - name: Login GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & Push (X.Y.Z and latest)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ matrix.image_name }}:${{ steps.v.outputs.ver }}
+            ${{ env.REGISTRY }}/${{ matrix.image_name }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.v.outputs.ver }}
 ```
 
----
+**Critérios de aceitação:**
+
+* Publicar `ghcr.io/<org>/<img>-java:X.Y.Z` e `:latest` e o mesmo para `-node`.
+* Cada par (`X.Y.Z`, `latest`) aponta para o **mesmo digest**.
+* Logs devem exibir a versão extraída da tag e a validação de versão do arquivo (`pom.xml`/`package.json`).
 
 ## 8. Workflows — Node.js
 
@@ -249,6 +360,9 @@ on:
     branches: ['release/*','hotfix/*']
 permissions:
   contents: write
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   bump-and-anchor:
     runs-on: ubuntu-latest
@@ -270,6 +384,7 @@ jobs:
           git tag -a "$BASE_TAG" -m "base of $BR at creation"
           git push origin HEAD:"$BR"
           git push origin "$BASE_TAG"
+
 ```
 
 ### 8.2. Build & Push Docker
@@ -284,6 +399,9 @@ on:
 permissions:
   contents: read
   packages: write
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/minha-imagem-node
@@ -345,6 +463,7 @@ jobs:
             org.opencontainers.image.source=${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ steps.vars.outputs.tag }}
+
 ```
 
 ---
@@ -366,17 +485,17 @@ on:
     branches: ['release/*','hotfix/*']
     paths-ignore:
       - 'CHANGELOG.md'
-
 permissions:
   contents: write
-
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   changelog:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-
       - name: Resolve tag-prefix from anchor
         id: cfg
         shell: bash
@@ -384,19 +503,17 @@ jobs:
           BR="${GITHUB_REF_NAME}"                 # release/1.3.0 ou hotfix/1.3.1
           KIND="${BR%%/*}"                        # release|hotfix
           echo "tag_prefix=${KIND}-base/" >> "$GITHUB_OUTPUT"
-
       - name: Generate CHANGELOG from anchor..HEAD
         uses: TriPSs/conventional-changelog-action@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           preset: angular
-          tag-prefix: ${{ steps.cfg.outputs.tag_prefix }}     # usa a tag âncora release-base/X.Y.Z ou hotfix-base/X.Y.Z
+          tag-prefix: ${{ steps.cfg.outputs.tag_prefix }}
           output-file: CHANGELOG.md
-          skip-bump: 'true'           # versão já foi ajustada no anchor workflow
-          skip-tag: 'true'            # não taguear em release/hotfix
-          skip-version-file: 'true'   # não alterar arquivos de versão
-          release-count: '0'          # reescreve o arquivo baseado no range atual
-
+          skip-bump: 'true'
+          skip-tag: 'true'
+          skip-version-file: 'true'
+          release-count: '0'
       - name: Commit CHANGELOG
         shell: bash
         run: |
@@ -405,6 +522,7 @@ jobs:
             echo "No changes in CHANGELOG.md"; exit 0; fi
           git commit -m "docs(changelog): update for ${GITHUB_REF_NAME} [skip ci]"
           git push
+
 ```
 
 > Observação: ao usar `tag-prefix: release-base/` (ou `hotfix-base/`), a ação calcula o changelog **desde a tag âncora** até o commit atual da branch, sem criar novas tags.
@@ -413,12 +531,20 @@ jobs:
 
 ## 10. Regras de Qualidade/Segurança
 
-* **Branch protection**: `main`, `develop`, `release/*`, `hotfix/*`.
-* **Status checks obrigatórios**: execução bem‑sucedida dos workflows de âncora/bump (`java-anchor`, `node-anchor`) e da etapa **Validate version matches branch** nos pipelines de build.
-* **Sem rebase/force-push** em `release/*` e `hotfix/*`.
-* Checks obrigatórios: build, testes, lint, scan de dependências.
+### 10.1 Branch Protection — branches protegidas
+
+* `main`, `develop`, `release/*`, `hotfix/*`.
+
+### 10.3 Observações
+
+* **Método de merge por branch**:
+
+  * `main` / `develop`: \*\*apenas \*\****squash merge*** (garante histórico linear).
+  * `release/*` e `hotfix/*`: **proibido** rebase/squash/merge; **somente commits diretos e cherry‑pick**.
+* `release/*` e `hotfix/*`: **proibido** force‑push.
+* **Assinaturas**: habilitar **Require signed commits** e **Require commit signature verification** nas branches protegidas.
+* Checks complementares: build, testes, lint, scan de dependências.
 * GHCR: pacote como **public** (se imagens públicas) após primeiro push.
-* *(Opcional)* Enforçar `-SNAPSHOT` em `develop` (Java) e sufixo `-dev` no `package.json` (Node) com checagem similar.
 
 ---
 
