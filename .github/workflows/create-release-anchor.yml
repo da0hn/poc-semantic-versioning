@@ -28,7 +28,7 @@ jobs:
           BRANCH="${GITHUB_REF_NAME}"
           BRANCH_VERSION="${BRANCH#*/}"
           KIND="${BRANCH%%/*}"
-          
+
           # Verifica versão atual do pom.xml
           CURRENT_POM_VERSION=$(mvn -q -DforceStdout -Dexpression=project.version -DnonRecursive=true help:evaluate 2>/dev/null)
           
@@ -39,39 +39,57 @@ jobs:
           # Se as versões não coincidem, atualiza o pom.xml
           if [[ "$CURRENT_POM_VERSION" != "$BRANCH_VERSION" ]]; then
             echo "🔄 Synchronizing pom.xml version to match branch..."
-          
+
             mvn -q versions:set -DnewVersion="$BRANCH_VERSION" -DprocessAllModules=true -DgenerateBackupPoms=false
             mvn -q versions:commit
-          
+
             git add pom.xml
             git commit -m "chore: sync version to $BRANCH_VERSION [skip-version]
 
             - Branch: $BRANCH
             - Updated pom.xml from $CURRENT_POM_VERSION to $BRANCH_VERSION
             - This establishes the base version for incremental releases"
-          
+
             echo "✅ Version synchronized: $CURRENT_POM_VERSION → $BRANCH_VERSION"
           else
             echo "✅ Version already matches: $BRANCH_VERSION"
           fi
-          
+
           # Cria tag âncora APÓS possível commit de sincronização
           BASE_TAG="$KIND-base/$BRANCH_VERSION"
-          
+
           echo "🎯 Creating anchor tag: $BASE_TAG"
           git tag -a "$BASE_TAG" -m "Anchor for $BRANCH at creation
 
           Base version: $BRANCH_VERSION
           This tag marks the starting point for incremental versioning."
 
-      - name: Push anchor tag (for changelog range)
+      # Empurra a TAG ÂNCORA antes de gerar o changelog (a action lê via API do GitHub)
+      - name: Push anchor tag
         shell: bash
         run: |
           BRANCH="${GITHUB_REF_NAME}"
-          BRANCH_VERSION="${BRANCH#*/}"
           KIND="${BRANCH%%/*}"
+          BRANCH_VERSION="${BRANCH#*/}"
           BASE_TAG="$KIND-base/$BRANCH_VERSION"
           git push origin "$BASE_TAG"
+
+      # Garante que o arquivo exista para não acionar o bug do "base" vazio
+      - name: Prepare changelog file
+        shell: bash
+        run: |
+          touch CHANGELOG.md
+
+      # Calcula sinceTag e futureRelease em um passo simples
+      - name: Compute changelog inputs
+        id: cl
+        shell: bash
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"      # release/1.2.0 ou hotfix/1.2.1
+          KIND="${BRANCH%%/*}"             # release|hotfix
+          BASE_VER="${BRANCH#*/}"          # 1.2.0
+          echo "since_tag=${KIND}-base/${BASE_VER}" >> "$GITHUB_OUTPUT"
+          echo "future_release=${BASE_VER}" >> "$GITHUB_OUTPUT"
 
       - name: Generate initial changelog (github-changelog-generator)
         uses: heinrichreimer/github-changelog-generator-action@v2.3
@@ -79,9 +97,10 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           user: ${{ github.repository_owner }}
           project: ${{ github.event.repository.name }}
-          sinceTag: ${{ startsWith(github.ref_name, 'release/') && format('release-base/{0}', github.ref_name != '' && github.ref_name || '') || format('hotfix-base/{0}', github.ref_name != '' && github.ref_name || '') }}
-          futureRelease: ${{ github.ref_name && github.ref_name != '' && github.ref_name }} # usa X.Y.Z da própria branch
+          sinceTag: ${{ steps.cl.outputs.since_tag }}
+          futureRelease: ${{ steps.cl.outputs.future_release }}
           output: CHANGELOG.md
+          base: CHANGELOG.md
           issues: true
           pullRequests: true
           prWoLabels: true
@@ -95,18 +114,10 @@ jobs:
           BRANCH="${GITHUB_REF_NAME}"
           KIND="${BRANCH%%/*}"
           BRANCH_VERSION="${BRANCH#*/}"
-          BASE_TAG="$KIND-base/$BRANCH_VERSION"
-          
-          # Adiciona changelog se foi gerado
           git add CHANGELOG.md || true
-          
-          # Commit do changelog inicial (se houver)
           if ! git diff --cached --quiet; then
             git commit -m "docs(changelog): initial changelog for $BRANCH [skip-version]"
-            echo "📝 Initial changelog created"
           fi
-          
-          # Push da branch (e tag já foi enviada anteriormente)
           git push origin HEAD:"$BRANCH"
           
           echo "🚀 Setup completed successfully!"
