@@ -1,11 +1,9 @@
-name: Gerar changelog
+name: Generate Changelog
 on:
-#  create:
-#    branches: ['release/*','hotfix/*']
-#  push:
-#    branches: ['release/*','hotfix/*']
-#    paths-ignore:
-#      - 'CHANGELOG.md'
+  workflow_run:
+    workflows: [ "Increment Version on Commit" ]
+    types: [ completed ]
+    branches: [ 'release/**', 'hotfix/**' ]
 
 permissions:
   contents: write
@@ -13,6 +11,7 @@ permissions:
 jobs:
   changelog:
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
@@ -37,7 +36,7 @@ jobs:
           preset: angular
           tag-prefix: ${{ steps.cfg.outputs.tag_prefix }}     # usa a tag âncora release-base/X.Y.Z ou hotfix-base/X.Y.Z
           output-file: CHANGELOG.md
-          skip-bump: 'true'           # versão já foi ajustada no anchor workflow
+          skip-bump: 'true'           # versão já foi ajustada no increment workflow
           skip-tag: 'true'            # não taguear em release/hotfix
           skip-version-file: 'true'   # não alterar arquivos de versão
           release-count: '0'          # reescreve o arquivo baseado no range atual
