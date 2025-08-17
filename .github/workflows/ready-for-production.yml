@@ -1,4 +1,4 @@
-name: master-release
+name: ready-for-production
 on:
   push:
     branches: [ 'master' ]
@@ -15,7 +15,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-        with: { fetch-depth: 0 }
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
