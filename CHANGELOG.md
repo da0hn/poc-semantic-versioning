@@ -1,6 +1,10 @@
 # [](https://github.com/da0hn/poc-semantic-versioning/compare/v1.9.1...v) (2025-08-17)
 
 
+
+## [1.9.1](https://github.com/da0hn/poc-semantic-versioning/compare/v1.8.2...v1.9.1) (2025-08-17)
+
+
 ### Reverts
 
 * **deps:** remove arquivo CHANGELOG.md do repositório ([4c14a73](https://github.com/da0hn/poc-semantic-versioning/commit/4c14a73bdfdef24eb549cd5345dc17d5f49f658a))
