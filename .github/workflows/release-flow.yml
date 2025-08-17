@@ -32,7 +32,7 @@ jobs:
         run: echo "create=$([[ '${{ github.event_name }}' == 'create' ]] && echo 1 || echo 0)" >>"$GITHUB_OUTPUT"
 
       # -- anchor: bump X.Y.0 + tag base
-      - name: anchor
+      - name: bump X.Y.0 + tag base
         if: steps.mode.outputs.create == '1'
         run: |
           BR=${GITHUB_REF_NAME}; VER=${BR#*/}; KIND=${BR%%/*}
