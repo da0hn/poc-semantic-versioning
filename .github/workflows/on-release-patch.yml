@@ -1,7 +1,7 @@
-name: release-build
+name: on-release-patch
 on:
   workflow_run:
-    workflows: ["release-anchor"]
+    workflows: ["on-new-release-push"]
     branches: ['release/*','hotfix/*']
     types: [completed]
   push:
