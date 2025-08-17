@@ -1,147 +1,101 @@
-name: release-hotfix-build
+name: java-release-hotfix-build
+
 on:
+  workflow_run:
+    workflows: ["java-anchor"]
+    branches: ['release/*', 'hotfix/*']
+    types: [completed]
   push:
     branches: ['release/*', 'hotfix/*']
 
 permissions:
-  contents: write          # p/ commit CHANGELOG + bump
-  packages: write          # p/ publicar imagens
+  contents: write
+  packages: write
 
-# Impede corrida entre jobs da mesma branch
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: true
 
 env:
   REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/minha-imagem-java
 
 jobs:
   build:
-    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}   # ignora commits do próprio bot
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     runs-on: ubuntu-latest
 
-    strategy:
-      fail-fast: false
-      matrix:
-        stack: [java, node]
-        include:
-          - stack: java
-            image_name: ${{ github.repository_owner }}/semantic-versioning-poc
-          - stack: node
-            image_name: ${{ github.repository_owner }}/semantic-versioning-poc
-
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
 
-      # Toolchains ----------------------------------------------------
       - uses: actions/setup-java@v4
-        if: matrix.stack == 'java'
         with: { distribution: temurin, java-version: '24' }
 
-      - uses: actions/setup-node@v4
-        if: matrix.stack == 'node'
-        with: { node-version: '22', cache: npm }
-
-      # 1. Calcula patch esperado ------------------------------------
-      - name: Compute expected version (anchor..HEAD)
+      # 1) versão esperada (patch = commits desde âncora)
+      - name: Compute expected version
         id: ver
         shell: bash
         run: |
-          set -euo pipefail
-          BR="${GITHUB_REF_NAME}"               # release/1.3.0
-          BASE_VER="${BR#*/}"                   # 1.3.0
-          MAJOR="${BASE_VER%%.*}"
-          MINOR="$(echo "$BASE_VER" | cut -d. -f2)"
+          BR="${GITHUB_REF_NAME}"                  # release/1.3.0
+          BASE="${BR#*/}"                          # 1.3.0
+          MAJOR="${BASE%%.*}"
+          MINOR="${BASE#*.}"
+          MINOR="${MINOR%%.*}"
           git fetch --tags --quiet
-          BASE_TAG="${BR%%/*}-base/${BASE_VER}" # release-base/1.3.0
-          COUNT=$(git rev-list --count "$BASE_TAG..HEAD")
+          COUNT=$(git rev-list --count "${BR%%/*}-base/${BASE}..HEAD")
           echo "expected=$MAJOR.$MINOR.$COUNT" >>"$GITHUB_OUTPUT"
 
-      # 2. Garante/bump versão ---------------------------------------
-      - name: Ensure version file == expected
-        id: bump
+      # 2) garante pom.xml == esperado
+      - name: Sync pom.xml
+        id: sync
         shell: bash
         run: |
-          set -euo pipefail
           EXP="${{ steps.ver.outputs.expected }}"
-          CHANGED=0
-          if [[ "${{ matrix.stack }}" == "java" ]]; then
-            CUR=$(mvn -q -DforceStdout -Dexpression=project.version -DnonRecursive=true help:evaluate)
-            if [[ "$CUR" != "$EXP" ]]; then
-              mvn -q versions:set -DnewVersion="$EXP" \
-                   -DprocessAllModules=true -DgenerateBackupPoms=false
-              mvn -q versions:commit
-              CHANGED=1
-            fi
-          else
-            CUR=$(jq -r '.version' package.json)
-            if [[ "$CUR" != "$EXP" ]]; then
-              npm version --no-git-tag-version "$EXP"
-              CHANGED=1
-            fi
-          fi
-          echo "changed=$CHANGED" >>"$GITHUB_OUTPUT"
-
-      # 3. Regenera CHANGELOG (anchor..HEAD) -------------------------
-      - name: Generate CHANGELOG (anchor..HEAD)
-        shell: bash
-        run: |
-          KIND="${GITHUB_REF_NAME%%/*}"                   # release|hotfix
-          npx --yes conventional-changelog \
-              -p angular \
-              -i CHANGELOG.md -s -r 0 \
-              --tag-prefix "${KIND}-base/"
-
-      # 4. Build artefatos -------------------------------------------
-      - name: Build project (skip tests)
-        run: |
-          if [[ "${{ matrix.stack }}" == "java" ]]; then
-            mvn -B -DskipTests package
-          else
-            npm ci
-            npm run build || echo "no build step"
-          fi
-
-      # 5. Login + Build & Push imagem -------------------------------
-      - name: Login GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build & Push image X.Y.N
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ matrix.image_name }}:${{ steps.ver.outputs.expected }}
-          labels: |
-            org.opencontainers.image.source=${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.version=${{ steps.ver.outputs.expected }}
-
-      - name: Detect CHANGELOG modification
-        id: chg
-        shell: bash
-        run: |
-          set -euo pipefail
-          if git status --porcelain -- CHANGELOG.md | grep -q .; then
+          CUR=$(mvn -q -DforceStdout -Dexpression=project.version -DnonRecursive=true help:evaluate)
+          if [ "$CUR" != "$EXP" ]; then
+            mvn -q versions:set -DnewVersion="$EXP" -DprocessAllModules=true -DgenerateBackupPoms=false
+            mvn -q versions:commit
             echo "changed=1" >>"$GITHUB_OUTPUT"
           else
             echo "changed=0" >>"$GITHUB_OUTPUT"
           fi
 
-      # 6. Commit (versão + changelog) num único push ----------------
-      - name: Commit bump & changelog [skip ci]
-        if: steps.bump.outputs.changed == '1' || steps.chg.outputs.changed == '1'
+      # 3) atualiza CHANGELOG (âncora..HEAD)
+      - name: Update CHANGELOG
         shell: bash
         run: |
-          set -euo pipefail
+          KIND="${GITHUB_REF_NAME%%/*}"
+          npx --yes conventional-changelog -p angular -i CHANGELOG.md -s -r 0 \
+              --tag-prefix "${KIND}-base/"
+
+      # 4) build jar
+      - run: mvn -B -DskipTests package
+
+      # 5) login + push imagem X.Y.N
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.ver.outputs.expected }}
+          labels: |
+            org.opencontainers.image.source=${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.ver.outputs.expected }}
+
+      # 6) commit versão + changelog (skip CI)
+      - name: Commit bump & changelog
+        if: steps.sync.outputs.changed == '1' || (git status --porcelain | grep -q CHANGELOG.md)
+        shell: bash
+        run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "chore(version): ${{ steps.ver.outputs.expected }} [skip ci]" || exit 0
           git push
-
