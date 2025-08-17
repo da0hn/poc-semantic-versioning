@@ -77,7 +77,7 @@ jobs:
             git push
           fi
 
-      - name: build jar
+      - name: build jar (skip tests)
         if: steps.mode.outputs.create == '0'
         run: mvn -B -DskipTests package
 
