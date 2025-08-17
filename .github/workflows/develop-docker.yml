@@ -1,7 +1,7 @@
 name: develop-docker
 on:
   push:
-    branches: [develop]
+    branches: [ 'develop' ]
 
 permissions: { contents: read, packages: write }
 
