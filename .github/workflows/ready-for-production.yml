@@ -43,7 +43,7 @@ jobs:
           echo "{\"version\":\"$VERSION\"}" > .version.json
 
           # gera/atualiza CHANGELOG.md
-          npx conventional-changelog -p angular -i CHANGELOG.md -s -r 0 -k .version.json
+          npx conventional-changelog -n .changelogrc.js -p conventionalcommits -i CHANGELOG.md -s -r 0 -k .version.json
           git add CHANGELOG.md
           git commit -m "docs(changelog): $VERSION [skip ci]" || true
 
