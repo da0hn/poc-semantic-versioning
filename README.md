@@ -51,7 +51,7 @@ bugfix/*             → correções não críticas
 **Placeholders obrigatórios:**
 
 * `REGISTRY` (ex.: `ghcr.io`)
-* `IMAGE` (ex.: `${{ github.repository_owner }}/semantic-versioning-poc`)
+* `IMAGE` (ex.: `my-org/my-service`)
 
 **Regras:**
 
@@ -91,66 +91,267 @@ bugfix/*             → correções não críticas
 
 ---
 
-## 6. Workflows (arquivos e responsabilidades)
+## 6. Workflows (arquivos e responsabilidades) — **Exemplos**
 
 > **Arquivos vigentes**: `build-and-test.yml`, `develop-docker.yml`, `on-new-release-branch.yml`, `on-release-patch.yml`, `ready-for-production.yml`.
+> Os exemplos abaixo usam imagem **genérica** (`IMAGE: my-org/my-service`).
 
 ### 6.1 `build-and-test.yml`
 
-* **Disparo:** PRs para `develop`/`master` e/ou `push` (conforme repo).
-* **Função:** build, testes, lint/scan.
-* **Status check obrigatório** para merges.
+```yaml
+name: build-and-test
+on:
+  pull_request:
+    branches: [develop, master]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '24'
+      - name: Build & Test
+        run: mvn -B -Dmaven.test.failure.ignore=false verify
+```
+
+**Função:** build, testes, lint/scan. **Status check obrigatório** para merges.
+
+---
 
 ### 6.2 `develop-docker.yml`
 
-* **Disparo:** `push` em `develop`.
-* **Saída:** imagem `${REGISTRY}/${IMAGE}:develop-${{ github.run_number }}`.
-* **Permissões:** `packages: write`.
+```yaml
+name: develop-docker
+on:
+  push:
+    branches: [develop]
+permissions:
+  contents: read
+  packages: write
+env:
+  REGISTRY: ghcr.io
+  IMAGE: my-org/my-service
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '24'
+      - run: mvn -B -DskipTests package
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE }}:develop-${{ github.run_number }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+```
+
+**Saída:** `${REGISTRY}/${IMAGE}:develop-${{ github.run_number }}`.
+
+---
 
 ### 6.3 `on-new-release-branch.yml`
 
-* **Disparo:** `create` em `release/*` e `hotfix/*`.
-* **Passos:**
+```yaml
+name: on-new-release-branch
+on:
+  create:
+    branches: ['release/*', 'hotfix/*']
+permissions:
+  contents: write
+concurrency:
+  group: rel-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  anchor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '24'
+      - name: Bump base + tag âncora
+        shell: bash
+        run: |
+          BR="${GITHUB_REF_NAME}"             # release/1.10.0
+          VER="${BR#*/}"                      # 1.10.0
+          KIND="${BR%%/*}"                    # release|hotfix
+          mvn -q versions:set -DnewVersion="$VER" -DprocessAllModules=true -DgenerateBackupPoms=false
+          mvn -q versions:commit
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: init $VER [skip ci]"
+          git tag -a "$KIND-base/$VER" -m "anchor $VER"
+          git push --follow-tags
+```
 
-  * Bump `pom.xml` para `X.Y.0` (ou `X.Y.Z` em hotfix).
-  * Commit `[skip ci]`.
-  * Criar tag **âncora** `release-base/X.Y.0` (ou `hotfix-base/X.Y.Z`).
-  * *Opcional:* gravar `.version.json`.
-* **Concurrency:** **não** cancelar execuções em progresso (evita corrida com `push`).
+**Passos:** bump `pom.xml` → commit `[skip ci]` → **tag âncora**.
+
+---
 
 ### 6.4 `on-release-patch.yml`
 
-* **Disparo:** `push` em `release/*` e `hotfix/*`.
-* **Guard:** se âncora não existir ainda, **sair** sem erro (evita falha inicial).
-* **Passos:**
+```yaml
+name: on-release-patch
+on:
+  push:
+    branches: ['release/*', 'hotfix/*']
+permissions:
+  contents: write
+  packages: write
+concurrency:
+  group: rel-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  REGISTRY: ghcr.io
+  IMAGE: my-org/my-service
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '24'
+      - name: Guard âncora
+        id: guard
+        shell: bash
+        run: |
+          BR=${GITHUB_REF_NAME}; BASE=${BR#*/}; KIND=${BR%%/*}
+          git fetch --tags --quiet
+          if git rev-parse -q --verify "refs/tags/${KIND}-base/${BASE}" >/dev/null; then
+            echo ok=1 >>$GITHUB_OUTPUT
+          else
+            echo ok=0 >>$GITHUB_OUTPUT
+          fi
+      - name: Sync branch (FF)
+        if: steps.guard.outputs.ok == '1'
+        run: |
+          git fetch origin $GITHUB_REF_NAME --tags --quiet
+          git merge --ff-only origin/$GITHUB_REF_NAME || true
+      - name: Compute X.Y.N
+        if: steps.guard.outputs.ok == '1'
+        id: ver
+        shell: bash
+        run: |
+          BR=${GITHUB_REF_NAME}; BASE=${BR#*/}; KIND=${BR%%/*}
+          COUNT=$(git rev-list --count "${KIND}-base/${BASE}..HEAD")
+          MAJOR=${BASE%%.*}; MINOR=$(echo $BASE|cut -d. -f2)
+          echo exp=$MAJOR.$MINOR.$COUNT >>$GITHUB_OUTPUT
+      - name: Bump pom.xml (se necessário)
+        if: steps.guard.outputs.ok == '1'
+        id: sync
+        run: |
+          EXP=${{ steps.ver.outputs.exp }}
+          CUR=$(mvn -q -DforceStdout -Dexpression=project.version -DnonRecursive=true help:evaluate)
+          if [ "$CUR" != "$EXP" ]; then
+            mvn -q versions:set -DnewVersion="$EXP" -DprocessAllModules=true -DgenerateBackupPoms=false
+            mvn -q versions:commit
+            git config user.name  "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git commit -am "chore(version): $EXP [skip ci]"
+            git push
+          fi
+      - name: Build JAR
+        if: steps.guard.outputs.ok == '1'
+        run: mvn -B -DskipTests package
+      - name: Push Docker X.Y.N
+        if: steps.guard.outputs.ok == '1'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE }}:${{ steps.ver.outputs.exp }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+```
 
-  * Sincronizar branch (`git fetch --tags` e `merge --ff-only`).
-  * Calcular `X.Y.N` a partir da **âncora** (ou `anchor_sha`).
-  * Se `pom.xml` ≠ `X.Y.N`, bump + commit `[skip ci]`.
-  * Build JAR.
-  * Publicar Docker `${REGISTRY}/${IMAGE}:X.Y.N`.
+**Resultado:** bump incremental, build e publicação de `${REGISTRY}/${IMAGE}:X.Y.N`.
+
+---
 
 ### 6.5 `ready-for-production.yml`
 
-* **Disparo:** `push` em `master/main` (merge da release).
-* **Passos (ordem):**
+```yaml
+name: ready-for-production
+on:
+  push:
+    branches: [master]
+permissions:
+  contents: write
+  packages: write
+env:
+  REGISTRY: ghcr.io
+  IMAGE: my-org/my-service
+jobs:
+  release-merge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm i -g conventional-changelog-cli@2 conventional-changelog-conventionalcommits@6
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '24'
+      - id: ver
+        run: |
+          V=$(mvn -q -DforceStdout -Dexpression=project.version -DnonRecursive=true help:evaluate)
+          echo version=$V >>$GITHUB_OUTPUT
+      - name: Changelog → commit → tag
+        run: |
+          set -e
+          V=${{ steps.ver.outputs.version }}
+          git fetch --tags --force --prune
+          npx conventional-changelog -n ./.changelogrc.json -i CHANGELOG.md -s -r 0 || \
+            npx conventional-changelog -p conventionalcommits -i CHANGELOG.md -s -r 0
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "docs(changelog): $V [skip ci]" || true
+          git tag -a "v$V" -m "release $V"
+          git push --follow-tags
+      - run: mvn -B -DskipTests package
+      - name: Push Docker latest & versão
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE }}:${{ steps.ver.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE }}:latest
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+```
 
-  1. `git fetch --tags`.
-  2. **Gerar changelog** (`-n .changelogrc.json` se existir; `-r 0`).
-  3. Commit `docs(changelog): X.Y.Z [skip ci]`.
-  4. Criar **tag** `vX.Y.Z` (apontando para o commit do changelog).
-  5. Build JAR.
-  6. Publicar Docker com **duas** tags: `X.Y.Z` **e** `latest`.
+**Resultado:** `CHANGELOG.md` com cabeçalho da versão, tag `vX.Y.Z`, imagens `X.Y.Z` e `latest`.
 
 ---
 
 ## 7. Ordem de Execução e Dependências
 
 1. **Criação de release/hotfix** → roda **`on-new-release-branch`** (bump + âncora).
-
   * O commit usa `[skip ci]`, não dispara patch build.
 2. **Commits na release/hotfix** → **`on-release-patch`**:
-
   * **Guard** verifica tag âncora; se ausente, sai sem erro.
   * Calcula `N`, bump se necessário, publica imagem `X.Y.N`.
 3. **Merge para `master/main`** → **`ready-for-production`**:
@@ -170,7 +371,7 @@ bugfix/*             → correções não críticas
 
 ## 8. Proteções de Branch (Obrigatório)
 
-* Branches protegidas: `master`, `develop`, `release/*`, `hotfix/*`.
+* Branches protegidas: `master/main`, `develop`, `release/*`, `hotfix/*`.
 * **Status checks (exatos):**
 
   * `build-and-test / build` (sucesso)
