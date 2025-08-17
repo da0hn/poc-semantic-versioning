@@ -52,7 +52,7 @@ jobs:
           git merge --ff-only origin/$GITHUB_REF_NAME
 
       # -- build / patch bump (pushes)
-      - name: calc X.Y.N
+      - name: bump patch version
         if: steps.mode.outputs.create == '0'
         id: ver
         run: |
