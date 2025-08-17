@@ -35,7 +35,8 @@ jobs:
           LAST=$(git describe --tags --match 'v*' --abbrev=0 || echo '')
           RANGE=${LAST:+${LAST}..HEAD}
           npx conventional-changelog -p angular -i CHANGELOG.md -s -r 0 $RANGE
-          git config user.name bot && git config user.email bot@local
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add CHANGELOG.md
           git commit -m "docs(changelog): ${{ steps.ver.outputs.version }} [skip ci]" || true
           git tag -a "v${{ steps.ver.outputs.version }}" -m "release ${{ steps.ver.outputs.version }}"
