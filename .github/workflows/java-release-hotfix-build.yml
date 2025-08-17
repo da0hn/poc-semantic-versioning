@@ -88,10 +88,19 @@ jobs:
             org.opencontainers.image.source=${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ steps.ver.outputs.expected }}
+      - name: Detect CHANGELOG modifications
+        id: chlog
+        shell: bash
+        run: |
+          if git diff --quiet -- CHANGELOG.md; then
+            echo "changed=0" >>"$GITHUB_OUTPUT"
+          else
+            echo "changed=1" >>"$GITHUB_OUTPUT"
+          fi
 
       # 6) commit versão + changelog (skip CI)
-      - name: Commit bump & changelog
-        if: steps.sync.outputs.changed == '1' || (git status --porcelain | grep -q CHANGELOG.md)
+      - name: Commit bump & changelog [skip ci]
+        if: steps.sync.outputs.changed == '1' || steps.chlog.outputs.changed == '1'
         shell: bash
         run: |
           git config user.name  "github-actions[bot]"
