@@ -1,4 +1,13 @@
-# [](https://github.com/da0hn/poc-semantic-versioning/compare/v1.9.1...v) (2025-08-17)
+# [](https://github.com/da0hn/poc-semantic-versioning/compare/v1.10.0...v) (2025-08-17)
+
+
+### Reverts
+
+* **workflows:** remove release-flow.yml ([80cf8c7](https://github.com/da0hn/poc-semantic-versioning/commit/80cf8c79d4c18649b476c033e3e695155358b8f6))
+
+
+
+# [1.10.0](https://github.com/da0hn/poc-semantic-versioning/compare/v1.9.1...v1.10.0) (2025-08-17)
 
 
 
