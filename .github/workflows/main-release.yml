@@ -8,7 +8,7 @@ permissions:
   packages: write
 env:
   REGISTRY: ghcr.io
-  IMAGE: ${{ github.repository_owner }} /semantic-versioning-poc
+  IMAGE: ${{ github.repository_owner }}/semantic-versioning-poc
 
 jobs:
   cut:
@@ -26,35 +26,33 @@ jobs:
           distribution: temurin
           java-version: '24'
 
-      # versão final (já com patch)
       - id: ver
         run: |
-          FINAL=$(mvn -q -DforceStdout -Dexpression=project.version -DnonRecursive=true help:evaluate)
-          echo "v=$FINAL" >>"$GITHUB_OUTPUT"
+          V=$(mvn -q -DforceStdout -Dexpression=project.version -DnonRecursive=true help:evaluate)
+          echo "version=$V" >>"$GITHUB_OUTPUT"
 
-      # changelog desde última tag v*
       - run: |
           LAST=$(git describe --tags --match 'v*' --abbrev=0 || echo '')
           RANGE=${LAST:+${LAST}..HEAD}
           npx conventional-changelog -p angular -i CHANGELOG.md -s -r 0 $RANGE
           git config user.name bot && git config user.email bot@local
           git add CHANGELOG.md
-          git commit -m "docs(changelog): ${{ steps.ver.outputs.v }} [skip ci]" || true
-          git tag -a "v${{ steps.ver.outputs.v }}" -m "release ${{ steps.ver.outputs.v }}"
+          git commit -m "docs(changelog): ${{ steps.ver.outputs.version }} [skip ci]" || true
+          git tag -a "v${{ steps.ver.outputs.version }}" -m "release ${{ steps.ver.outputs.version }}"
           git push --follow-tags
 
       - run: mvn -B -DskipTests package
 
       - uses: docker/login-action@v3
         with:
-          registry: ${ { env.REGISTRY } }
-          username: ${ { github.actor } }
-          password: ${ { secrets.GITHUB_TOKEN } } }
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE }}:${{ steps.ver.outputs.v }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE }}:${{ steps.ver.outputs.version }}
             ${{ env.REGISTRY }}/${{ env.IMAGE }}:latest
