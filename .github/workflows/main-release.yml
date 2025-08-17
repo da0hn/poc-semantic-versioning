@@ -34,13 +34,20 @@ jobs:
       - run: |
           LAST=$(git describe --tags --match 'v*' --abbrev=0 || echo '')
           RANGE=${LAST:+${LAST}..HEAD}
-          npx conventional-changelog -p angular -i CHANGELOG.md -s -r 0 $RANGE
+          
+          git tag -a "v${{ steps.ver.outputs.version }}" -m "release ${{ steps.ver.outputs.version }}"
+          
+          npx conventional-changelog -p angular -i CHANGELOG.md -s -r 0
+
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add CHANGELOG.md
           git commit -m "docs(changelog): ${{ steps.ver.outputs.version }} [skip ci]" || true
-          git tag -a "v${{ steps.ver.outputs.version }}" -m "release ${{ steps.ver.outputs.version }}"
-          git push --follow-tags
+          
+          git tag -f -a "v${{ steps.ver.outputs.version }}" -m "release ${{ steps.ver.outputs.version }}"
+          
+          git push origin HEAD
+          git push -f origin "v${{ steps.ver.outputs.version }}"
 
       - run: mvn -B -DskipTests package
 
