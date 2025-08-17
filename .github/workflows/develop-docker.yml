@@ -2,8 +2,12 @@ name: develop-docker
 on:
   push:
     branches: [ 'develop' ]
+  workflow_run:
+    workflows: ["build-and-test"]
+    branches: [ 'develop' ]
+    types: [ completed ]
 concurrency:
-  group: build-and-test-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 permissions:
