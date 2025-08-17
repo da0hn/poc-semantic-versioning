@@ -22,16 +22,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BR="${GITHUB_REF_NAME}"              # ex: release/1.10.0
-          VER="${BR#*/}"                       # 1.10.0
-          KIND="${BR%%/*}"                     # release|hotfix
+          CURRENT_BRANCH="${GITHUB_REF_NAME}"              # ex: release/1.10.0
+          NEW_VERSION="${CURRENT_BRANCH#*/}"                       # 1.10.0
+          KIND="${CURRENT_BRANCH%%/*}"                     # release|hotfix
 
-          mvn -q versions:set -DnewVersion="$VER" -DprocessAllModules=true -DgenerateBackupPoms=false
+          mvn -q versions:set -DnewVersion="$NEW_VERSION" -DprocessAllModules=true -DgenerateBackupPoms=false
           mvn -q versions:commit
 
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "chore: init $VER [skip ci]"
-          git tag -a "${KIND}-base/$VER" -m "anchor $VER"
+          git commit -m "chore: init $NEW_VERSION [skip ci]"
+          git tag -a "${KIND}-base/$NEW_VERSION" -m "anchor $NEW_VERSION"
           git push --follow-tags
