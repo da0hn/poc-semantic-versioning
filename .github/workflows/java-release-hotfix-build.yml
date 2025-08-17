@@ -1,0 +1,81 @@
+name: java-release-hotfix-build
+on:
+  push:
+    branches: [ 'release/*','hotfix/*' ]
+permissions:
+  contents: write
+  packages: write
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository_owner }}/semantic-versioning-poc
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '24' }
+
+      - name: Compute expected version (anchor..HEAD)
+        id: v
+        shell: bash
+        run: |
+          set -euo pipefail
+          BR="${GITHUB_REF_NAME}"              # release/1.3.0
+          VER="${BR#*/}"                       # 1.3.0
+          MAJOR="${VER%%.*}"
+          MINOR="$(echo "$VER" | cut -d. -f2)"
+          git fetch --tags --quiet
+          BASE="${BR%%/*}-base/${VER}"         # release-base/1.3.0
+          COUNT="$(git rev-list --count "$BASE..origin/$BR")"
+          echo "expected=$MAJOR.$MINOR.$COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure pom.xml == expected (no push yet)
+        id: ensure
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE_VER=$(mvn -q -DforceStdout -Dexpression=project.version -DnonRecursive=true help:evaluate)
+          if [ "$FILE_VER" != "${{ steps.v.outputs.expected }}" ]; then
+            mvn -q versions:set -DnewVersion="${{ steps.v.outputs.expected }}" -DprocessAllModules=true -DgenerateBackupPoms=false
+            mvn -q versions:commit
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build JAR
+        run: mvn -B -DskipTests package
+
+      - name: Login GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & Push image X.Y.N
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.v.outputs.expected }}
+          labels: |
+            org.opencontainers.image.source=${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.v.outputs.expected }}
+
+      - name: Commit version bump [skip ci]
+        if: steps.ensure.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore(version): ${{ steps.v.outputs.expected }} [skip ci]"
+          git push
