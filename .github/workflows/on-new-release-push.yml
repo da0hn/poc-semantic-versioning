@@ -1,4 +1,4 @@
-name: release-anchor
+name: on-new-release-push
 on:
   create:
     branches: ['release/*','hotfix/*']
