@@ -11,7 +11,7 @@ env:
   IMAGE: ${{ github.repository_owner }}/semantic-versioning-poc
 
 jobs:
-  cut:
+  release-merge:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -31,21 +31,23 @@ jobs:
           V=$(mvn -q -DforceStdout -Dexpression=project.version -DnonRecursive=true help:evaluate)
           echo "version=$V" >>"$GITHUB_OUTPUT"
 
-      - run: |
+      - name: Create changelog + new tag
+        run: |
+          VERSION=${{ steps.ver.outputs.version }}
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          git tag -a "v${{ steps.ver.outputs.version }}" -m "release ${{ steps.ver.outputs.version }}"
-          
-          npx conventional-changelog -p angular -i CHANGELOG.md -s -r 0
 
+          # gera/atualiza CHANGELOG.md
+          npx conventional-changelog -p angular -i CHANGELOG.md -s -r 0
           git add CHANGELOG.md
-          git commit -m "docs(changelog): ${{ steps.ver.outputs.version }} [skip ci]" || true
-          
-          git tag -f -a "v${{ steps.ver.outputs.version }}" -m "release ${{ steps.ver.outputs.version }}"
-          
-          git push origin HEAD
-          git push -f origin "v${{ steps.ver.outputs.version }}"
+          git commit -m "docs(changelog): $VERSION [skip ci]" || true
+
+          # cria tag apontando para ESTE commit
+          git tag -a "v$VERSION" -m "release $VERSION"
+
+          # push commit + tag
+          git push --follow-tags
+
 
       - run: mvn -B -DskipTests package
 
