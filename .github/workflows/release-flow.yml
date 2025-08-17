@@ -1,12 +1,12 @@
 name: release-flow
 on:
   create:
-    branches: [ 'release/*','hotfix/*' ]
+    branches: ['release/*','hotfix/*']
   push:
-    branches: [ 'release/*','hotfix/*' ]
+    branches: ['release/*','hotfix/*']
 
 concurrency:
-  group: rel-${ { github.ref } }
+  group: rel-${{ github.ref }}
   cancel-in-progress: true
 permissions:
   contents: write
@@ -38,11 +38,18 @@ jobs:
           BR=${GITHUB_REF_NAME}; VER=${BR#*/}; KIND=${BR%%/*}
           mvn -q versions:set -DnewVersion="$VER" -DprocessAllModules=true -DgenerateBackupPoms=false
           mvn -q versions:commit
-          git config user.name bot && git config user.email bot@local
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "chore: init $VER"
           git tag -a "$KIND-base/$VER" -m anchor
           git push --follow-tags
+
+      - name: sync branch with remote
+        if: steps.mode.outputs.create == '0'
+        run: |
+          git fetch origin $GITHUB_REF_NAME --tags --quiet
+          git merge --ff-only origin/$GITHUB_REF_NAME
 
       # -- build / patch bump (pushes)
       - name: calc X.Y.N
@@ -64,7 +71,8 @@ jobs:
           if [ "$CUR" != "$EXP" ]; then
             mvn -q versions:set -DnewVersion="$EXP" -DprocessAllModules=true -DgenerateBackupPoms=false
             mvn -q versions:commit
-            git config user.name bot && git config user.email bot@local
+            git config user.name  "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
             git commit -am "chore(version): $EXP [skip ci]"
             git push
           fi
