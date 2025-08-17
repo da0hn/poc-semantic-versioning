@@ -32,9 +32,7 @@ jobs:
 
       # 4) CLI + preset angular
       - name: Install changelog CLI
-        run: npm install -g \
-          conventional-changelog-cli@^2 \
-          conventional-changelog-angular@^6
+        run: npm install -g conventional-changelog-cli@2 conventional-changelog-angular@6
 
       # 5) bump versão, gerar CHANGELOG, criar tag âncora
       - name: Bump version, generate changelog, tag anchor
