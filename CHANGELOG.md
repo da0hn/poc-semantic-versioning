@@ -1,4 +1,8 @@
-# [](https://github.com/da0hn/poc-semantic-versioning/compare/v1.11.14...v) (2025-08-17)
+# [1.13.0](https://github.com/da0hn/poc-semantic-versioning/compare/v1.12.2...v1.13.0) (2025-08-17)
+
+
+
+## [1.12.2](https://github.com/da0hn/poc-semantic-versioning/compare/v1.11.14...v1.12.2) (2025-08-17)
 
 
 
