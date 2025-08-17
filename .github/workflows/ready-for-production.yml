@@ -39,8 +39,11 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          # informar versão ao conventional-changelog (Maven não tem package.json)
+          echo "{\"version\":\"$VERSION\"}" > .version.json
+
           # gera/atualiza CHANGELOG.md
-          npx conventional-changelog -p angular -i CHANGELOG.md -s -r 0
+          npx conventional-changelog -p angular -i CHANGELOG.md -s -r 0 -k .version.json
           git add CHANGELOG.md
           git commit -m "docs(changelog): $VERSION [skip ci]" || true
 
