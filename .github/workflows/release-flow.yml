@@ -27,7 +27,7 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '24' }
 
-      - name: detect create
+      - name: detect new release branch
         id: mode
         run: echo "create=$([[ '${{ github.event_name }}' == 'create' ]] && echo 1 || echo 0)" >>"$GITHUB_OUTPUT"
 
