@@ -1,7 +1,7 @@
 name: master-release
 on:
   push:
-    branches: [ master ]
+    branches: [ 'master' ]
 
 permissions: { contents: write, packages: write }
 env:
