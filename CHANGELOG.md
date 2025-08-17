@@ -1,4 +1,8 @@
-# [](https://github.com/da0hn/poc-semantic-versioning/compare/v1.10.0...v) (2025-08-17)
+# [](https://github.com/da0hn/poc-semantic-versioning/compare/v1.11.14...v) (2025-08-17)
+
+
+
+## [1.11.14](https://github.com/da0hn/poc-semantic-versioning/compare/v1.10.0...v1.11.14) (2025-08-17)
 
 
 ### Reverts
