@@ -1,5 +1,14 @@
+## 1.17.0 (2025-08-17)
+
+* chore: init 1.17.0 [skip ci] ([304df01](https://github.com/da0hn/poc-semantic-versioning/commit/304df01))
+* docs(readme): atualiza exemplos e corrige inconsistências ([33a45c5](https://github.com/da0hn/poc-semantic-versioning/commit/33a45c5))
+* docs(readme): reduz escopo e reestrutura RFC de versionamento ([926f755](https://github.com/da0hn/poc-semantic-versioning/commit/926f755))
+
+
+
 ## 1.16.0 (2025-08-17)
 
+* docs(changelog): 1.16.0 [skip ci] ([a2fc3b9](https://github.com/da0hn/poc-semantic-versioning/commit/a2fc3b9))
 * chore: init 1.15.0 [skip ci] ([c7a1bd4](https://github.com/da0hn/poc-semantic-versioning/commit/c7a1bd4))
 * chore: init 1.16.0 [skip ci] ([4118e5a](https://github.com/da0hn/poc-semantic-versioning/commit/4118e5a))
 * chore(deps): adiciona configuração do changelog baseado no conventional commits ([991044d](https://github.com/da0hn/poc-semantic-versioning/commit/991044d))
