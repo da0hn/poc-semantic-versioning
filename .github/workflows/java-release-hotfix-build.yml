@@ -32,6 +32,12 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '24' }
 
+      - uses: actions/setup-node@v4              # ← novo
+        with: { node-version: '22' }
+
+      - name: Install changelog CLI
+        run: npm install -g conventional-changelog-cli@2 conventional-changelog-angular@6
+
       # 1) versão esperada (patch = commits desde âncora)
       - name: Compute expected version
         id: ver
