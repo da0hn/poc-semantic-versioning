@@ -1,8 +1,24 @@
+## <small>1.18.2 (2025-08-22)</small>
+
+* chore: init 1.18.0 [skip ci] ([9533f5c](https://github.com/da0hn/poc-semantic-versioning/commit/9533f5c))
+* chore: init GH-13 [skip ci] ([2385ac2](https://github.com/da0hn/poc-semantic-versioning/commit/2385ac2)), closes [#13](https://github.com/da0hn/poc-semantic-versioning/issues/13)
+* chore: init GH-15 [skip ci] ([65c72c3](https://github.com/da0hn/poc-semantic-versioning/commit/65c72c3)), closes [#15](https://github.com/da0hn/poc-semantic-versioning/issues/15)
+* chore(version): 1.18.2 [skip ci] ([8abb77c](https://github.com/da0hn/poc-semantic-versioning/commit/8abb77c))
+* ci(workflows): adiciona etapa de build ao workflow de branches release/hotfix ([656dcaa](https://github.com/da0hn/poc-semantic-versioning/commit/656dcaa))
+* ci(workflows): ajusta workflow de criação de branch release/hotfix ([5529369](https://github.com/da0hn/poc-semantic-versioning/commit/5529369)), closes [#15](https://github.com/da0hn/poc-semantic-versioning/issues/15) [#13](https://github.com/da0hn/poc-semantic-versioning/issues/13) [#15](https://github.com/da0hn/poc-semantic-versioning/issues/15) [#13](https://github.com/da0hn/poc-semantic-versioning/issues/13)
+* ci(workflows): ativa cancelamento de execuções concorrentes no pipeline ([ec46b9c](https://github.com/da0hn/poc-semantic-versioning/commit/ec46b9c)), closes [#15](https://github.com/da0hn/poc-semantic-versioning/issues/15)
+* fix: ajusta versão do artefato no pom.xml ([badf4e3](https://github.com/da0hn/poc-semantic-versioning/commit/badf4e3)), closes [#15](https://github.com/da0hn/poc-semantic-versioning/issues/15) [#15](https://github.com/da0hn/poc-semantic-versioning/issues/15)
+* fix(workflows): adiciona verificação condicional no workflow de release ([44e99dc](https://github.com/da0hn/poc-semantic-versioning/commit/44e99dc)), closes [#15](https://github.com/da0hn/poc-semantic-versioning/issues/15)
+* docs(dockerfile): adiciona maintainer ao Dockerfile ([e43e256](https://github.com/da0hn/poc-semantic-versioning/commit/e43e256)), closes [#13](https://github.com/da0hn/poc-semantic-versioning/issues/13)
+
+
+
 ## 1.17.0 (2025-08-17)
 
-* chore: init 1.17.0 [skip ci] ([304df01](https://github.com/da0hn/poc-semantic-versioning/commit/304df01))
+* docs(changelog): 1.17.0 [skip ci] ([96536cd](https://github.com/da0hn/poc-semantic-versioning/commit/96536cd))
 * docs(readme): atualiza exemplos e corrige inconsistências ([33a45c5](https://github.com/da0hn/poc-semantic-versioning/commit/33a45c5))
 * docs(readme): reduz escopo e reestrutura RFC de versionamento ([926f755](https://github.com/da0hn/poc-semantic-versioning/commit/926f755))
+* chore: init 1.17.0 [skip ci] ([304df01](https://github.com/da0hn/poc-semantic-versioning/commit/304df01))
 
 
 
