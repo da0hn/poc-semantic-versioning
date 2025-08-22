@@ -6,7 +6,7 @@ on:
     branches: [ 'develop', 'feature/**', 'bugfix/**', 'release/**', 'hotfix/**' ]
 concurrency:
   group: build-and-test-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build-and-test:
