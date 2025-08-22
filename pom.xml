@@ -10,7 +10,7 @@
     </parent>
     <groupId>dev.ghonda</groupId>
     <artifactId>poc-semantic-versioning</artifactId>
-    <version>1.16.0</version>
+    <version>GH-13</version>
     <name>poc-semantic-versioning</name>
     <description>poc-semantic-versioning</description>
     <url/>
