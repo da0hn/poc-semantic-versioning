@@ -1,4 +1,5 @@
 FROM maven:3.9.9-amazoncorretto-24-alpine AS build
+MAINTAINER "gabriel honda"
 WORKDIR /app
 COPY pom.xml .
 COPY src ./src

@@ -1,4 +1,4 @@
-name: on-new-release-push
+name: on-new-release-branch
 on:
   create:
     branches: ['release/*','hotfix/*']
@@ -11,12 +11,16 @@ concurrency:
 
 jobs:
   bump-and-create-anchor-tag:
+    if: github.event.ref_type == 'branch' && (startsWith(github.event.ref, 'release/') || startsWith(github.event.ref, 'hotfix/'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '24' }
+
+      - name: build new release
+        run: mvn clean package -DskipTests
 
       - name: Bump X.Y.0 + anchor tag (release|hotfix)-base/X.Y.0
         shell: bash
