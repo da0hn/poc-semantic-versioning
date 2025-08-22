@@ -161,39 +161,45 @@ jobs:
 ### 6.3 `on-new-release-branch.yml`
 
 ```yaml
-name: on-new-release-branch
+name: on-new-release-push
 on:
   create:
-    branches: ['release/*', 'hotfix/*']
+    branches: ['release/*','hotfix/*']
+
 permissions:
   contents: write
 concurrency:
   group: rel-${{ github.ref }}
   cancel-in-progress: false
+
 jobs:
-  anchor:
+  bump-and-create-anchor-tag:
+    if: github.event.ref_type == 'branch' && (startsWith(github.event.ref, 'release/') || startsWith(github.event.ref, 'hotfix/'))
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
       - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '24'
-      - name: Bump base + tag âncora
+        with: { distribution: temurin, java-version: '24' }
+
+      - name: Bump X.Y.0 + anchor tag (release|hotfix)-base/X.Y.0
         shell: bash
         run: |
-          BR="${GITHUB_REF_NAME}"             # release/1.10.0
-          VER="${BR#*/}"                      # 1.10.0
-          KIND="${BR%%/*}"                    # release|hotfix
-          mvn -q versions:set -DnewVersion="$VER" -DprocessAllModules=true -DgenerateBackupPoms=false
+          set -euo pipefail
+          CURRENT_BRANCH="${GITHUB_REF_NAME}"              # ex: release/1.10.0
+          NEW_VERSION="${CURRENT_BRANCH#*/}"                       # 1.10.0
+          KIND="${CURRENT_BRANCH%%/*}"                     # release|hotfix
+
+          mvn -q versions:set -DnewVersion="$NEW_VERSION" -DprocessAllModules=true -DgenerateBackupPoms=false
           mvn -q versions:commit
+
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "chore: init $VER [skip ci]"
-          git tag -a "$KIND-base/$VER" -m "anchor $VER"
+          git commit -m "chore: init $NEW_VERSION [skip ci]"
+          git tag -a "${KIND}-base/$NEW_VERSION" -m "anchor $NEW_VERSION"
           git push --follow-tags
+
 ```
 
 **Passos:** bump `pom.xml` → commit `[skip ci]` → **tag âncora**.
