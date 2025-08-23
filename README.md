@@ -161,7 +161,7 @@ jobs:
 ### 6.3 `on-new-release-branch.yml`
 
 ```yaml
-name: on-new-release-push
+name: on-new-release-branch
 on:
   create:
     branches: ['release/*','hotfix/*']
