@@ -1,6 +1,6 @@
 name: on-new-release-branch
 on:
-  create:
+  push:
     branches: ['release/*','hotfix/*']
 
 permissions:
@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   bump-and-create-anchor-tag:
-    if: github.event.ref_type == 'branch' && (startsWith(github.event.ref, 'release/') || startsWith(github.event.ref, 'hotfix/'))
+    if: ${{ github.event.created == true}}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
