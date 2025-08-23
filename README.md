@@ -163,7 +163,7 @@ jobs:
 ```yaml
 name: on-new-release-branch
 on:
-  create:
+  push:
     branches: ['release/*','hotfix/*']
 
 permissions:
@@ -174,13 +174,16 @@ concurrency:
 
 jobs:
   bump-and-create-anchor-tag:
-    if: github.event.ref_type == 'branch' && (startsWith(github.event.ref, 'release/') || startsWith(github.event.ref, 'hotfix/'))
+    if: ${{ github.event.created == true}}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '24' }
+
+      - name: build new release
+        run: mvn clean package -DskipTests
 
       - name: Bump X.Y.0 + anchor tag (release|hotfix)-base/X.Y.0
         shell: bash
@@ -199,7 +202,6 @@ jobs:
           git commit -m "chore: init $NEW_VERSION [skip ci]"
           git tag -a "${KIND}-base/$NEW_VERSION" -m "anchor $NEW_VERSION"
           git push --follow-tags
-
 ```
 
 **Passos:** bump `pom.xml` → commit `[skip ci]` → **tag âncora**.
