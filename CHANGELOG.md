@@ -1,5 +1,16 @@
+## 1.19.0 (2025-08-23)
+
+* chore: init 1.19.0 [skip ci] ([a84e108](https://github.com/da0hn/poc-semantic-versioning/commit/a84e108))
+* ci(workflows): ajusta evento e condição no workflow de release/hotfix ([d78e288](https://github.com/da0hn/poc-semantic-versioning/commit/d78e288))
+* ci(workflows): ajusta evento, condição e adiciona etapa de build ([173d965](https://github.com/da0hn/poc-semantic-versioning/commit/173d965))
+* ci(workflows): ajusta nome do workflow de release/hotfix ([e64435a](https://github.com/da0hn/poc-semantic-versioning/commit/e64435a))
+
+
+
 ## <small>1.18.2 (2025-08-22)</small>
 
+* docs(changelog): 1.18.2 [skip ci] ([4863113](https://github.com/da0hn/poc-semantic-versioning/commit/4863113))
+* docs(dockerfile): adiciona maintainer ao Dockerfile ([e43e256](https://github.com/da0hn/poc-semantic-versioning/commit/e43e256)), closes [#13](https://github.com/da0hn/poc-semantic-versioning/issues/13)
 * chore: init 1.18.0 [skip ci] ([9533f5c](https://github.com/da0hn/poc-semantic-versioning/commit/9533f5c))
 * chore: init GH-13 [skip ci] ([2385ac2](https://github.com/da0hn/poc-semantic-versioning/commit/2385ac2)), closes [#13](https://github.com/da0hn/poc-semantic-versioning/issues/13)
 * chore: init GH-15 [skip ci] ([65c72c3](https://github.com/da0hn/poc-semantic-versioning/commit/65c72c3)), closes [#15](https://github.com/da0hn/poc-semantic-versioning/issues/15)
@@ -9,7 +20,6 @@
 * ci(workflows): ativa cancelamento de execuções concorrentes no pipeline ([ec46b9c](https://github.com/da0hn/poc-semantic-versioning/commit/ec46b9c)), closes [#15](https://github.com/da0hn/poc-semantic-versioning/issues/15)
 * fix: ajusta versão do artefato no pom.xml ([badf4e3](https://github.com/da0hn/poc-semantic-versioning/commit/badf4e3)), closes [#15](https://github.com/da0hn/poc-semantic-versioning/issues/15) [#15](https://github.com/da0hn/poc-semantic-versioning/issues/15)
 * fix(workflows): adiciona verificação condicional no workflow de release ([44e99dc](https://github.com/da0hn/poc-semantic-versioning/commit/44e99dc)), closes [#15](https://github.com/da0hn/poc-semantic-versioning/issues/15)
-* docs(dockerfile): adiciona maintainer ao Dockerfile ([e43e256](https://github.com/da0hn/poc-semantic-versioning/commit/e43e256)), closes [#13](https://github.com/da0hn/poc-semantic-versioning/issues/13)
 
 
 
