@@ -2,8 +2,6 @@ name: on-new-release-branch
 on:
   push:
     branches: ['release/*','hotfix/*']
-  create:
-    branches: ['release/*','hotfix/*']
 
 permissions:
   contents: write
